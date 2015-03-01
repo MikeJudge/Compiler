@@ -7,6 +7,8 @@
 import java.util.Scanner;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.Arrays;
+import java.io.PrintWriter;
 
 public class Simpletron {
 	private static final int MEMORY_SIZE   = 1000;
@@ -42,17 +44,22 @@ public class Simpletron {
 	private int operand;		     //memory location where operation is being operated on last three of instructionRegister
 	private int instructionRegister; //full instruction word
 
+	private String fileName;
+	private PrintWriter writer;
 
-	public Simpletron() {
+
+	public Simpletron(String fileName) {
 		memory = new int[MEMORY_SIZE];
 		accumulator 	    = 0;
 		instructionCounter  = 0;
 		operationCode       = 0;
 		operand             = 0;
 		instructionRegister = 0;
+		this.fileName = fileName;
 	}
 
-	public void loadProgram (String fileName) {
+	public void loadProgram () {
+		clearMemory();
 		try {
 			Scanner scanner = new Scanner(new File(fileName));
 			int i = 0;
@@ -60,12 +67,22 @@ public class Simpletron {
 				storeWord(i++, scanner.nextInt());
 			}
 			scanner.close();
-		} catch (FileNotFoundException e) {System.out.println("file not found");}
+		} catch (FileNotFoundException e) {fatalError("*** error loading program ***");}
+	}
+
+	//post: sets all member variables to 0
+	private void clearMemory() {
+		Arrays.fill(memory, 0);
+		accumulator 	    = 0;
+		instructionCounter  = 0;
+		operationCode       = 0;
+		operand             = 0;
+		instructionRegister = 0;
 	}
 
 	//pre:  index, and word are in range
 	//post: word is stored in memory
-	public void storeWord(int index, int word) {
+	private void storeWord(int index, int word) {
 		if (word > MAX_WORD_SIZE || word < MIN_WORD_SIZE) {
 			fatalError("*** overflow occured ***");
 		}
@@ -83,8 +100,16 @@ public class Simpletron {
 		return true;
 	}
 
+	private void startPrintWriter() {
+		try {
+			writer = new PrintWriter(fileName.substring(0,fileName.length()-3) + "out");
+		} catch (FileNotFoundException io) {fatalError("*** error opening output stream ***");}
+	}
+
 	public void executeProgram() {
 		Scanner input = new Scanner(System.in);
+		startPrintWriter();
+
 		while (true) {
 			//case when branch jumps the program out of bounds
 			if (instructionCounter >= MEMORY_SIZE || instructionCounter < 0)
@@ -103,13 +128,18 @@ public class Simpletron {
 			switch (operationCode) {
 				//condense code branch, and branchneg are the only ops that don't instructioncounter++
 				case READ:        System.out.print("Enter an integer: ");
-							      storeWord(operand, input.nextInt());
+							      writer.print("Enter an integer: ");
+							      int n = input.nextInt();
+							      storeWord(operand, n);
+							      writer.println(""+ n);
 							      instructionCounter++;
 							      break;
 				case WRITE:       System.out.print(memory[operand]);
+								  writer.print(memory[operand]);
 							      instructionCounter++;
 							      break;
 			    case NEWLINE:     System.out.println();
+			                      writer.println();
 			                      instructionCounter++;
 			                      break;
 				case LOAD:        accumulator = memory[operand];
@@ -154,45 +184,71 @@ public class Simpletron {
 								  	  instructionCounter++;
 								  break;
 				case HALT:        System.out.println("*** Simpletron execution terminated ***");
+				                  writer.println("*** Simpletron execution terminated ***");
+				                  writer.close();
 							      return;
 				//invalid operation code
 				default:		  fatalError("*** Invalid operation code ***");
 
 			}
-
 		}
 	}
 
 
 	//post: all of the variables are printed to the screen
-	public void dumpMemory() {
+	private void dumpMemory() {
+
 		System.out.println("REGISTERS:");
+		writer.println("REGISTERS:");
+
 		System.out.println("accumulator" + "          " + formatWord(accumulator));
+		writer.println("accumulator" + "          " + formatWord(accumulator));
+
 		System.out.println("instructionCounter" + "   " + "    " + formatCode(instructionCounter));
+		writer.println("instructionCounter" + "   " + "    " + formatCode(instructionCounter));
+
 		System.out.println("instructionRegister" + "  " + formatWord(instructionRegister));
+		writer.println("instructionRegister" + "  " + formatWord(instructionRegister));
+
 		System.out.println("operationCode" + "        " + "    " + formatCode(operationCode));
+		writer.println("operationCode" + "        " + "    " + formatCode(operationCode));
+
 		System.out.println("operand" + "              " + "    " + formatCode(operand));
+		writer.println("operand" + "              " + "    " + formatCode(operand));
+
 		System.out.println("\n" + "MEMORY:");
+		writer.println("\n" + "MEMORY:");
+
 		System.out.print("   ");
+		writer.print("   ");
 
 		final int DIMEN = 10;
 		for (int i = 0; i < DIMEN; i++) {
 			System.out.print("      " + i);
+			writer.print("      " + i);
 		}
 		System.out.println();
+		writer.println();
 
 		for (int i = 0; i < DIMEN*DIMEN; i++) {
-			if (i == 0)
+			if (i == 0) {
 				System.out.print("  0");
-			else if (i < 10)
+				writer.print("  0");
+			} else if (i < 10) {
 				System.out.print(" " + i + "0");
-			else
+				writer.print(" " + i + "0");
+			} else {
 				System.out.print(i + "0");
+				writer.print(i + "0");
+			}
 			for (int n = 0; n < DIMEN; n++) {
 				System.out.print(" " + formatWord(memory[i*DIMEN + n]));
+				writer.print(" " + formatWord(memory[i*DIMEN + n]));
 			}
 			System.out.println();
+			writer.println();
 		}
+		writer.close();
 	}
 
 	//post: returns word in +wxyz or -wxyz format
@@ -219,44 +275,20 @@ public class Simpletron {
 	private void fatalError(String errorMessage) {
 		System.out.println(errorMessage);
 		System.out.println("*** Simpletron execution abnormally terminated ***");
-		dumpMemory();
+		if (writer != null) {
+			writer.println(errorMessage);
+			writer.println("*** Simpletron execution abnormally terminated ***");
+			dumpMemory();
+		}
 		System.exit(-1);
 	}
 
 
 	public static void main(String [] args) {
-		
-		final int SENTINAL = -999999;
-		Scanner input = new Scanner(System.in);
-		System.out.println("*** Welcome to Simpletron! ***");
-		System.out.println("*** Please enter your program one instruction  ***");
-		System.out.println("*** (or data word) at a time into the input    ***");
-		System.out.println("*** text field. I will display the location    ***");
-		System.out.println("*** number and a question mark (?). You then   ***");
-		System.out.println("*** type the word for that location. Press the ***");
-		System.out.println("*** Done button to stop entering your program. ***");
-
-		int word = 0;
-		int index = 0;
-		Simpletron test = new Simpletron();
-
-		while (true) {
-			if (index < 10)
-				System.out.print("0" + index + " ? ");
-			else {
-				System.out.print(index + " ? ");
-			}
-			word = input.nextInt();
-			if (word == SENTINAL)
-				break;
-			test.storeWord(index++, word);
-		}
-
-
-		System.out.println("*** Program loading completed ***");
-		System.out.println("*** Program execution begins  ***");
+		Simpletron test = new Simpletron("test.txt");
+		test.loadProgram();
 		test.executeProgram();
-		test.dumpMemory();
+		
 		
 		
 	}
