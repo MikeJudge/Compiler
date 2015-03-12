@@ -28,4 +28,12 @@ public class SymbolTable {
 		return null;
 	}
 
+	public TableEntry get(TableEntry entry) {
+		return get(entry.getSymbol(), entry.getType());
+	}
+
+	public int find(TableEntry entry) {
+		return find(entry.getSymbol(), entry.getType());
+	}
+
 }

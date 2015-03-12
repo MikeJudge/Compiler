@@ -17,13 +17,18 @@ public class PostfixEvaluator {
 
 		for (int i = 0; i < expressionArr.length; i++) {
 			string = expressionArr[i];
-			//could be a one digit number, a variable, or a operator
+			//could be a one digit number, a variable, or an operator
 			if (string.length() == 1)
 				//operator: take the top two items evaluate them using the operand, and push the result to the stack
 				if (isOperator(string.charAt(0))) {
 					char operator = string.charAt(0);
 					int result;
-					x = stack.pop();
+
+					if (stack.empty())
+						x = 0;
+					else 
+						x = stack.pop();
+
 					if (stack.empty())
 						y = 0;
 					else 

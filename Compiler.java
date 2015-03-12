@@ -3,6 +3,7 @@ import java.util.Scanner;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.FileNotFoundException;
+import java.util.Stack;
 
 public class Compiler {
 	private static final String REMARK = "rem";
@@ -33,14 +34,15 @@ public class Compiler {
 		dataCounter = 999;
 	}
 
+	//pre: file exists and contains valid syntax for a simple program
+	//post: file created with machine level instructions contained in it
 	public void compileProgram(String fileName) {
 		this.fileName = fileName;
 
 		Scanner scanner = openFile(fileName);
-		String [] tokens;
 
 		while (scanner.hasNext()) {
-			analyzeLine(scanner.nextLine());
+			compileLine(scanner.nextLine());
 		}
 		writeMachineCode();
 	}
@@ -55,44 +57,159 @@ public class Compiler {
 	}
 
 
-	private void analyzeLine(String line) {
-		String [] tokens = line.split(" ");
+	private void compileLine(String line) {
+		String [] tokens = getTokens(line);
 
 		int lineNumber = Integer.parseInt(tokens[0]);
 		table.put(new TableEntry(lineNumber, TableEntry.LINE, instructionCounter));
 
 		String command = tokens[1];
 
-		if (command.equals(REMARK))
+		if (command.equals(REMARK)) 
+		{
 			return;
-
-		if (command.equals(INPUT)) 
+		}
+		else if (command.equals(INPUT)) 
 		{
 			int symbol = (int)tokens[2].charAt(0);
-			TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
-			if (entry == null) {
-				entry = new TableEntry(symbol, TableEntry.VARIABLE, dataCounter--);
-				table.put(entry);
-			}
-
-			int instruction = Simpletron.READ*1000 + entry.getLocation();
-			machineCodeArr[instructionCounter++] = instruction;
+			compileInputCommand(symbol);
 		}
 		else if (command.equals(PRINT)) 
 		{
 			int symbol = (int)tokens[2].charAt(0);
-			TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
-
-			int instruction = Simpletron.WRITE*1000 + entry.getLocation();
-			machineCodeArr[instructionCounter++] = instruction;
+			compilePrintCommand(symbol);
 		}
-		else if (command.equals(END)) {
+		else if (command.equals(LET))
+		{
+			String expression = line.substring(line.indexOf("let")+3);
+			compileLetCommand(expression);
+	    } 
+	    else if (command.equals(END)) 
+	    {
 			machineCodeArr[instructionCounter++] = Simpletron.HALT*1000;
-		} else {
+		} 
+	    else 
+	    {
 			System.out.println("Compile error! command not found");
 		}
 
 	}
+
+	private void compileInputCommand(int symbol) {
+		TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
+		if (entry == null) {
+			entry = new TableEntry(symbol, TableEntry.VARIABLE, dataCounter--);
+			table.put(entry);
+		}
+		int instruction = Simpletron.READ*1000 + entry.getLocation();
+		machineCodeArr[instructionCounter++] = instruction;
+	}
+
+	private void compilePrintCommand(int symbol) {
+		TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
+		if (entry == null) {
+			entry = new TableEntry(symbol, TableEntry.VARIABLE, dataCounter--);
+			table.put(entry);
+		}
+		int instruction = Simpletron.WRITE*1000 + entry.getLocation();
+		machineCodeArr[instructionCounter++] = instruction;
+	}
+
+	//pre: must be a full let statment i.e y = n1 + n1
+	private void compileLetCommand(String statement) {
+		String assignmentExpression = InfixToPostfixConverter.getPostfix(statement.substring(statement.indexOf("=")+1));
+		String [] expressionArr = getTokens(assignmentExpression);
+
+		Stack<TableEntry> stack = new Stack<>();
+		String string;
+		TableEntry x, y;
+
+		for (int i = 0; i < expressionArr.length; i++) {
+			string = expressionArr[i];
+			//if it is an operator
+			if (string.length() == 1 && InfixToPostfixConverter.isOperator(string.charAt(0))) {
+				//operator: take the top two items evaluate them using the operand, and push the result to the stack
+				char operator = string.charAt(0);
+
+				if (stack.empty()) {
+					x = new TableEntry(0, TableEntry.CONSTANT, dataCounter--);
+					table.put(x);
+				}
+				else 
+					x = stack.pop();
+
+				if (stack.empty()) {
+					y = new TableEntry(0, TableEntry.CONSTANT, dataCounter--);
+					table.put(y);
+				}
+				else 
+					y = stack.pop();
+
+				switch (operator) {
+					case '*': compileLetSubCommand(x, y, Simpletron.MULTIPLY); break;
+					case '/': compileLetSubCommand(x, y, Simpletron.DIVIDE); break;
+					case '+': compileLetSubCommand(x, y, Simpletron.ADD); break;
+					case '-': compileLetSubCommand(x, y, Simpletron.SUBTRACT); break;
+					case '%': compileLetSubCommand(x, y, Simpletron.REMAINDER); break;
+				}
+
+				TableEntry result = new TableEntry(0, TableEntry.CONSTANT, dataCounter--);
+				machineCodeArr[instructionCounter++] = Simpletron.STORE*1000 + result.getLocation();
+				stack.push(result); 
+
+			} else {
+				//it must be a constant, or a variable
+				int symbol;
+				char type;
+				if (Character.isDigit(string.charAt(0))) {
+					symbol = Integer.parseInt(string);
+					type = TableEntry.CONSTANT;
+				} 
+				else {
+					symbol = (int)string.charAt(0);
+					type = TableEntry.VARIABLE;
+				}
+
+				TableEntry entry = table.get(symbol, type);
+				if (entry == null) { //doesn't exist in the table
+					if (type == TableEntry.CONSTANT)
+						machineCodeArr[dataCounter] = symbol;
+
+					entry = new TableEntry(symbol, type, dataCounter--);
+					table.put(entry);
+				}
+
+				stack.push(entry);
+			}
+		}
+		TableEntry solution = stack.pop();
+		int variable = (int)(getTokens(statement)[0].charAt(0));
+		TableEntry assigneeVariable = table.get(variable, TableEntry.VARIABLE);
+		if (assigneeVariable == null) {
+			assigneeVariable = new TableEntry(variable, TableEntry.VARIABLE, dataCounter--);
+			table.put(assigneeVariable);
+		}
+
+		machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + solution.getLocation();
+		machineCodeArr[instructionCounter++] = Simpletron.STORE*1000 + assigneeVariable.getLocation();
+	}
+
+
+	//returns an array of strings split from whitespace in the input string
+	private String[] getTokens(String string) {
+		String [] tokens;
+		String temp = string.trim();
+
+		tokens = temp.split("\\s{1,}");
+		return tokens;
+	}
+
+	private void compileLetSubCommand(TableEntry x, TableEntry y, int operation) {
+		machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000  + y.getLocation();
+		machineCodeArr[instructionCounter++] = operation*1000   + x.getLocation();
+	}
+
+
 
 	private void writeMachineCode() {
 		try {

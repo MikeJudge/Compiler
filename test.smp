@@ -1,5 +1,4 @@
-10 input x
-20 input y
-30 print x
-40 print y
+5 input s
+10 let t = -100 + s - 50*2/5
+20 print t
 99 end

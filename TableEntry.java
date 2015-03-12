@@ -25,4 +25,16 @@ public class TableEntry {
 		return location;
 	}
 
+	public void setSymbol(int symbol) {
+		this.symbol = symbol;
+	}
+
+	public void setType(char type) {
+		this.type = type;
+	}
+
+	public void setLocation(int location) {
+		this.location = location;
+	}
+
 }

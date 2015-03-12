@@ -1,13 +1,11 @@
 import java.util.Stack;
 
 public class InfixToPostfixConverter {
-	private String expression;
 
-	public InfixToPostfixConverter(String expression) {
-		this.expression = expression;
+	private InfixToPostfixConverter() {
 	}
 
-	public String getPostfix() {
+	public static String getPostfix(String expression) {
 		String infix = expression + ")";
 		StringBuilder postfix = new StringBuilder("");
 		Stack<Character> stack = new Stack<>();
@@ -43,6 +41,8 @@ public class InfixToPostfixConverter {
 				while (stack.peek() != '(')
 					postfix.append(stack.pop() + " ");
 				stack.pop();
+			} else if (c != ' ') {  //must be a variable
+				postfix.append(c + " ");
 			}
 
 			i++;
@@ -50,7 +50,7 @@ public class InfixToPostfixConverter {
 		return postfix.toString();
 	}
 
-	private boolean precedence(char operator1, char operator2) {
+	private static boolean precedence(char operator1, char operator2) {
 		int op1 = -1;
 		int op2 = -1;
 		String [] precedenceRules = {"+ -", "* ? % /", "^"};
@@ -68,7 +68,7 @@ public class InfixToPostfixConverter {
 	}
 
 
-	private static boolean isOperator(char c) {
+	public static boolean isOperator(char c) {
 		if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '^')
 			return true;
 
@@ -76,8 +76,7 @@ public class InfixToPostfixConverter {
 	}
 
 	public static void main(String [] args) {
-		//625 20 + 5 * 8 4 / - 
-		InfixToPostfixConverter test = new InfixToPostfixConverter("(-625+20)* 5 -8/ 4");
-		System.out.println(test.getPostfix());
+
+		System.out.println(InfixToPostfixConverter.getPostfix("   b + 111"));
 	}
 }
