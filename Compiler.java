@@ -56,6 +56,16 @@ public class Compiler {
 		return scanner;
 	}
 
+	//pre: symbol, and type
+	//post: returns tableEntry if it is in the table, if not in table put it in table and return it
+	private TableEntry getEntry(int symbol, char type) {
+		TableEntry entry = table.get(symbol, type);
+		if (entry == null) { //not in the table yet
+			entry = new TableEntry(symbol, type, dataCounter--);
+			table.put(entry);
+		}
+		return entry;
+	}
 
 	private void compileLine(String line) {
 		String [] tokens = getTokens(line);
@@ -96,21 +106,13 @@ public class Compiler {
 	}
 
 	private void compileInputCommand(int symbol) {
-		TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
-		if (entry == null) {
-			entry = new TableEntry(symbol, TableEntry.VARIABLE, dataCounter--);
-			table.put(entry);
-		}
+		TableEntry entry = getEntry(symbol, TableEntry.VARIABLE);
 		int instruction = Simpletron.READ*1000 + entry.getLocation();
 		machineCodeArr[instructionCounter++] = instruction;
 	}
 
 	private void compilePrintCommand(int symbol) {
-		TableEntry entry = table.get(symbol, TableEntry.VARIABLE);
-		if (entry == null) {
-			entry = new TableEntry(symbol, TableEntry.VARIABLE, dataCounter--);
-			table.put(entry);
-		}
+		TableEntry entry = getEntry(symbol, TableEntry.VARIABLE);
 		int instruction = Simpletron.WRITE*1000 + entry.getLocation();
 		machineCodeArr[instructionCounter++] = instruction;
 	}
@@ -170,25 +172,16 @@ public class Compiler {
 					type = TableEntry.VARIABLE;
 				}
 
-				TableEntry entry = table.get(symbol, type);
-				if (entry == null) { //doesn't exist in the table
-					if (type == TableEntry.CONSTANT)
-						machineCodeArr[dataCounter] = symbol;
-
-					entry = new TableEntry(symbol, type, dataCounter--);
-					table.put(entry);
-				}
+				TableEntry entry = getEntry(symbol, type);
+				if (entry.getType() == TableEntry.CONSTANT)
+					machineCodeArr[entry.getLocation()] = symbol;
 
 				stack.push(entry);
 			}
 		}
 		TableEntry solution = stack.pop();
 		int variable = (int)(getTokens(statement)[0].charAt(0));
-		TableEntry assigneeVariable = table.get(variable, TableEntry.VARIABLE);
-		if (assigneeVariable == null) {
-			assigneeVariable = new TableEntry(variable, TableEntry.VARIABLE, dataCounter--);
-			table.put(assigneeVariable);
-		}
+		TableEntry assigneeVariable = getEntry(variable, TableEntry.VARIABLE);
 
 		machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + solution.getLocation();
 		machineCodeArr[instructionCounter++] = Simpletron.STORE*1000 + assigneeVariable.getLocation();
