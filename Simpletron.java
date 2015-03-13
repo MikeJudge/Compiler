@@ -133,7 +133,7 @@ public class Simpletron {
 							      writer.println(""+ n);
 							      instructionCounter++;
 							      break;
-				case WRITE:       printString(memory[operand] + "");
+				case WRITE:       printString(memory[operand] + "\n");
 							      instructionCounter++;
 							      break;
 			    case NEWLINE:     printString("\n");
@@ -180,7 +180,7 @@ public class Simpletron {
 								  else
 								  	  instructionCounter++;
 								  break;
-				case HALT:        printString("*** Simpletron execution terminated ***");
+				case HALT:        printString("*** Simpletron execution terminated ***\n");
 				                  writer.close();
 							      return;
 				//invalid operation code
@@ -200,10 +200,10 @@ public class Simpletron {
 	private void dumpMemory() {
 		printString("REGISTERS:\n");
 		printString("accumulator" + "          " + formatWord(accumulator) + "\n");
-		printString("instructionCounter" + "   " + "    " + formatCode(instructionCounter) + "\n");
+		printString("instructionCounter" + "   " + "   " + formatCode(instructionCounter, 3) + "\n");
 		printString("instructionRegister" + "  " + formatWord(instructionRegister) + "\n");
-		printString("operationCode" + "        " + "    " + formatCode(operationCode) + "\n");
-		printString("operand" + "              " + "    " + formatCode(operand) + "\n");
+		printString("operationCode" + "        " + "    " + formatCode(operationCode, 2) + "\n");
+		printString("operand" + "              " + "   " + formatCode(operand, 3) + "\n");
 		printString("\n" + "MEMORY:" + "\n");
 		printString("   ");
 
@@ -243,9 +243,9 @@ public class Simpletron {
 	}
 
     //post: returns a two digit string with preceding 0's if necessary
-	private String formatCode(int code) {
+	private String formatCode(int code, int length) {
 		String s = code + "";
-		while (s.length() < 2)
+		while (s.length() < length)
 			s = "0" + s;
 		return s;
 	}
