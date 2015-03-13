@@ -127,19 +127,16 @@ public class Simpletron {
 
 			switch (operationCode) {
 				//condense code branch, and branchneg are the only ops that don't instructioncounter++
-				case READ:        System.out.print("Enter an integer: ");
-							      writer.print("Enter an integer: ");
+				case READ:        printString("Enter an integer: ");
 							      int n = input.nextInt();
 							      storeWord(operand, n);
 							      writer.println(""+ n);
 							      instructionCounter++;
 							      break;
-				case WRITE:       System.out.print(memory[operand]);
-								  writer.print(memory[operand]);
+				case WRITE:       printString(memory[operand] + "");
 							      instructionCounter++;
 							      break;
-			    case NEWLINE:     System.out.println();
-			                      writer.println();
+			    case NEWLINE:     printString("\n");
 			                      instructionCounter++;
 			                      break;
 				case LOAD:        accumulator = memory[operand];
@@ -183,8 +180,7 @@ public class Simpletron {
 								  else
 								  	  instructionCounter++;
 								  break;
-				case HALT:        System.out.println("*** Simpletron execution terminated ***");
-				                  writer.println("*** Simpletron execution terminated ***");
+				case HALT:        printString("*** Simpletron execution terminated ***");
 				                  writer.close();
 							      return;
 				//invalid operation code
@@ -194,59 +190,41 @@ public class Simpletron {
 		}
 	}
 
+	private void printString(String string) {
+		System.out.print(string);
+		writer.print(string);
+	}
+
 
 	//post: all of the variables are printed to the screen
 	private void dumpMemory() {
-
-		System.out.println("REGISTERS:");
-		writer.println("REGISTERS:");
-
-		System.out.println("accumulator" + "          " + formatWord(accumulator));
-		writer.println("accumulator" + "          " + formatWord(accumulator));
-
-		System.out.println("instructionCounter" + "   " + "    " + formatCode(instructionCounter));
-		writer.println("instructionCounter" + "   " + "    " + formatCode(instructionCounter));
-
-		System.out.println("instructionRegister" + "  " + formatWord(instructionRegister));
-		writer.println("instructionRegister" + "  " + formatWord(instructionRegister));
-
-		System.out.println("operationCode" + "        " + "    " + formatCode(operationCode));
-		writer.println("operationCode" + "        " + "    " + formatCode(operationCode));
-
-		System.out.println("operand" + "              " + "    " + formatCode(operand));
-		writer.println("operand" + "              " + "    " + formatCode(operand));
-
-		System.out.println("\n" + "MEMORY:");
-		writer.println("\n" + "MEMORY:");
-
-		System.out.print("   ");
-		writer.print("   ");
+		printString("REGISTERS:\n");
+		printString("accumulator" + "          " + formatWord(accumulator) + "\n");
+		printString("instructionCounter" + "   " + "    " + formatCode(instructionCounter) + "\n");
+		printString("instructionRegister" + "  " + formatWord(instructionRegister) + "\n");
+		printString("operationCode" + "        " + "    " + formatCode(operationCode) + "\n");
+		printString("operand" + "              " + "    " + formatCode(operand) + "\n");
+		printString("\n" + "MEMORY:" + "\n");
+		printString("   ");
 
 		final int DIMEN = 10;
 		for (int i = 0; i < DIMEN; i++) {
-			System.out.print("      " + i);
-			writer.print("      " + i);
+			printString("      " + i);
 		}
-		System.out.println();
-		writer.println();
+		printString("\n");
 
 		for (int i = 0; i < DIMEN*DIMEN; i++) {
 			if (i == 0) {
-				System.out.print("  0");
-				writer.print("  0");
+				printString("  0");
 			} else if (i < 10) {
-				System.out.print(" " + i + "0");
-				writer.print(" " + i + "0");
+				printString(" " + i + "0");
 			} else {
-				System.out.print(i + "0");
-				writer.print(i + "0");
+				printString(i + "0");
 			}
 			for (int n = 0; n < DIMEN; n++) {
-				System.out.print(" " + formatWord(memory[i*DIMEN + n]));
-				writer.print(" " + formatWord(memory[i*DIMEN + n]));
+				printString(" " + formatWord(memory[i*DIMEN + n]));
 			}
-			System.out.println();
-			writer.println();
+			printString("\n");
 		}
 		writer.close();
 	}
