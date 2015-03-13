@@ -38,12 +38,20 @@ public class Compiler {
 	//post: file created with machine level instructions contained in it
 	public void compileProgram(String fileName) {
 		this.fileName = fileName;
-
 		Scanner scanner = openFile(fileName);
 
 		while (scanner.hasNext()) {
 			compileLine(scanner.nextLine());
 		}
+
+		//second pass
+		for (int i = 0; i < flags.length; i++) {
+			if (flags[i] != -1) {
+				TableEntry entry = table.get(flags[i], TableEntry.LINE);
+				machineCodeArr[i] += entry.getLocation();
+			}
+		}
+
 		writeMachineCode();
 	}
 
@@ -94,6 +102,10 @@ public class Compiler {
 			String expression = line.substring(line.indexOf("let")+3);
 			compileLetCommand(expression);
 	    } 
+	    else if (command.equals(GOTO))
+	    {
+	    	compileGoToCommand(Integer.parseInt(tokens[2]));
+	    }
 	    else if (command.equals(END)) 
 	    {
 			machineCodeArr[instructionCounter++] = Simpletron.HALT*1000;
@@ -115,6 +127,17 @@ public class Compiler {
 		TableEntry entry = getEntry(symbol, TableEntry.VARIABLE);
 		int instruction = Simpletron.WRITE*1000 + entry.getLocation();
 		machineCodeArr[instructionCounter++] = instruction;
+	}
+
+	private void compileGoToCommand(int lineNumber) {
+		TableEntry entry = table.get(lineNumber, TableEntry.LINE);
+		if (entry == null) {
+			flags[instructionCounter] = lineNumber;
+			machineCodeArr[instructionCounter++] = Simpletron.BRANCH*1000;
+		} else {
+			int instruction = Simpletron.BRANCH*1000 + entry.getLocation();
+			machineCodeArr[instructionCounter++] = instruction;
+		}
 	}
 
 	//pre: must be a full let statment i.e y = n1 + n1
