@@ -24,7 +24,7 @@ public class Compiler {
 
 
 	public Compiler() {
-		table = new SymbolTable(1000);
+		table = new SymbolTable();
 		flags = new int[1000];
 		machineCodeArr = new int[1000];
 

@@ -1,39 +1,31 @@
-public class SymbolTable {
-	private TableEntry [] table;
-	private int size;
+import java.util.TreeMap;
 
-	public SymbolTable(int initSize) {
-		table = new TableEntry[initSize];
-		size = 0;
+public class SymbolTable {
+	private TreeMap<TableEntry, TableEntry> table;
+	
+
+	public SymbolTable() {
+		table = new TreeMap<>();
 	}
 
 	public void put(TableEntry entry) {
-		if (size < table.length)
-			table[size++] = entry;
-	}
-
-	public int find(int symbol, char type) {
-		for (int i = 0; i < size; i++) {
-			if (symbol == table[i].getSymbol() && type == table[i].getType())
-				return i;
-		}
-		return -1;
+		table.put(entry, entry);
 	}
 
 	public TableEntry get(int symbol, char type) {
-		for (int i = 0; i < size; i++) {
-			if (symbol == table[i].getSymbol() && type == table[i].getType())
-				return table[i];
-		}
-		return null;
+		return get(new TableEntry(symbol, type, 0));
 	}
 
 	public TableEntry get(TableEntry entry) {
-		return get(entry.getSymbol(), entry.getType());
+		return table.get(entry);
 	}
 
-	public int find(TableEntry entry) {
-		return find(entry.getSymbol(), entry.getType());
+	public boolean find(int symbol, char type) {
+		return find(new TableEntry(symbol, type, 0));
+	}
+
+	public boolean find(TableEntry entry) {
+		return (table.get(entry) != null);
 	}
 
 }
