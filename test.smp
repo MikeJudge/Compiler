@@ -1,4 +1,10 @@
-5 input s
-10 let t = -100 + s - 50*2/5
-20 print t
+5 let x = 0
+7 if x == 5 goto 95
+10 input t
+15 if t > m goto 30
+20 let x = x + 1
+25 goto 7
+30 let m = t
+35 goto 20
+95 print m
 99 end
