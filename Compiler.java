@@ -11,8 +11,7 @@ public class Compiler {
 	private static final String LET    = "let";
 	private static final String PRINT  = "print";
 	private static final String GOTO   = "goto";
-///////if/goto
-
+	private static final String IF     = "if";
 	private static final String END    = "end";
 
 	private SymbolTable table;
@@ -65,13 +64,17 @@ public class Compiler {
 	}
 
 	//pre: symbol, and type
-	//post: returns tableEntry if it is in the table, if not in table put it in table and return it
+	//post: returns tableEntry if it is in the table, if not in table put it in table and return it. If it is a constant
+	//      store the constant value in the machineCodeArr
 	private TableEntry getEntry(int symbol, char type) {
 		TableEntry entry = table.get(symbol, type);
 		if (entry == null) { //not in the table yet
 			entry = new TableEntry(symbol, type, dataCounter--);
 			table.put(entry);
 		}
+		if (entry.getType() == TableEntry.CONSTANT)
+			machineCodeArr[entry.getLocation()] = entry.getSymbol();
+
 		return entry;
 	}
 
@@ -104,7 +107,15 @@ public class Compiler {
 	    } 
 	    else if (command.equals(GOTO))
 	    {
-	    	compileGoToCommand(Integer.parseInt(tokens[2]));
+	    	compileGoToCommand(Integer.parseInt(tokens[2]), Simpletron.BRANCH);
+	    }
+	    else if (command.equals(IF))
+	    {
+	    	String operandLeft = tokens[2];
+	    	String operator = tokens[3];
+	    	String operandRight = tokens[4];
+	    	int location = Integer.parseInt(tokens[6]);
+	    	compileIfCommand(operandLeft, operator, operandRight, location);
 	    }
 	    else if (command.equals(END)) 
 	    {
@@ -113,6 +124,7 @@ public class Compiler {
 	    else 
 	    {
 			System.out.println("Compile error! command not found");
+			System.out.println(line);
 		}
 
 	}
@@ -129,14 +141,75 @@ public class Compiler {
 		machineCodeArr[instructionCounter++] = instruction;
 	}
 
-	private void compileGoToCommand(int lineNumber) {
+	private void compileGoToCommand(int lineNumber, int command) {
 		TableEntry entry = table.get(lineNumber, TableEntry.LINE);
 		if (entry == null) {
 			flags[instructionCounter] = lineNumber;
-			machineCodeArr[instructionCounter++] = Simpletron.BRANCH*1000;
+			machineCodeArr[instructionCounter++] = command*1000;
 		} else {
-			int instruction = Simpletron.BRANCH*1000 + entry.getLocation();
+			int instruction = command*1000 + entry.getLocation();
 			machineCodeArr[instructionCounter++] = instruction;
+		}
+	}
+
+	private void compileIfCommand(String operandLeft, String operator, String operandRight, int location) {
+		TableEntry leftEntry;
+		TableEntry rightEntry;
+
+		//loads the variable entries from the symbol table
+		if (Character.isDigit(operandLeft.charAt(0))) {
+			leftEntry = getEntry(Integer.parseInt(operandLeft), TableEntry.CONSTANT);
+		} else {
+			leftEntry = getEntry((int)operandLeft.charAt(0), TableEntry.VARIABLE);
+		}
+
+		if (Character.isDigit(operandRight.charAt(0))) {
+			rightEntry = getEntry(Integer.parseInt(operandRight), TableEntry.CONSTANT);
+		} else {
+			rightEntry = getEntry((int)operandRight.charAt(0), TableEntry.VARIABLE);
+		}
+
+
+		if (operator.equals("==")) 
+		{
+			machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + leftEntry.getLocation();
+			machineCodeArr[instructionCounter++] = Simpletron.SUBTRACT*1000 + rightEntry.getLocation();
+			compileGoToCommand(location, Simpletron.BRANCHZERO);
+		} 
+		else if (operator.equals("!=")) 
+		{
+			compileIfCommand(operandLeft, ">", operandRight, location);
+			compileIfCommand(operandLeft, "<", operandRight, location);
+		} 
+		else if (operator.equals(">=")) 
+		{
+			machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + rightEntry.getLocation();
+			machineCodeArr[instructionCounter++] = Simpletron.SUBTRACT*1000 + leftEntry.getLocation();
+			compileGoToCommand(location, Simpletron.BRANCHZERO);
+			compileGoToCommand(location, Simpletron.BRANCHNEG);
+		} 
+		else if (operator.equals("<=")) 
+		{
+			machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + leftEntry.getLocation();
+			machineCodeArr[instructionCounter++] = Simpletron.SUBTRACT*1000 + rightEntry.getLocation();
+			compileGoToCommand(location, Simpletron.BRANCHZERO);
+			compileGoToCommand(location, Simpletron.BRANCHNEG);
+		} 
+		else if (operator.equals(">")) 
+		{
+			machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + rightEntry.getLocation();
+			machineCodeArr[instructionCounter++] = Simpletron.SUBTRACT*1000 + leftEntry.getLocation();
+			compileGoToCommand(location, Simpletron.BRANCHNEG);
+		} 
+		else if (operator.equals("<")) 
+		{
+			machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + leftEntry.getLocation();
+			machineCodeArr[instructionCounter++] = Simpletron.SUBTRACT*1000 + rightEntry.getLocation();
+			compileGoToCommand(location, Simpletron.BRANCHNEG);
+		} 
+		else 
+		{
+			System.out.println("Syntax error");
 		}
 	}
 
@@ -196,8 +269,6 @@ public class Compiler {
 				}
 
 				TableEntry entry = getEntry(symbol, type);
-				if (entry.getType() == TableEntry.CONSTANT)
-					machineCodeArr[entry.getLocation()] = symbol;
 
 				stack.push(entry);
 			}
