@@ -43,8 +43,10 @@ public class Compiler {
 		} catch (FileNotFoundException e) {System.out.println("Failed to open source file"); return;}
 
 		//reads each line and compiles it
+		boolean isValid = true;
 		while (scanner.hasNext()) {
-			compileLine(scanner.nextLine());
+			if (!compileLine(scanner.nextLine()))
+				isValid = false;
 		}
 
 		//second pass, any unresolved references are set here. example: goto a place in the program that the compiler did not know 
@@ -56,7 +58,12 @@ public class Compiler {
 				machineCodeArr[i] += entry.getLocation();
 			}
 		}
-		writeMachineCode();
+		if (!isValid) {
+			System.out.println("\nCompilation Failed!");
+		} else {
+			writeMachineCode();
+			System.out.println("Compilation Successful!");
+		}
 	}
 
 	//pre: symbol, and type
@@ -76,34 +83,44 @@ public class Compiler {
 
 	//pre: syntactically correct program code line
 	//post: machineCodeArr filled with some machine instructions
-	private void compileLine(String line) {
+	//      true if no errors in input
+	private boolean compileLine(String line) {
+		boolean isValid = true;
 		String [] tokens = getTokens(line);
+		//each line must at least contain two tokens; ex: line# and command
+		if (tokens.length < 2) {
+			System.out.print("Syntax error: statement format error on line #");
+			isValid = false;
+		}
 
-		//adds line to the symbol table
+		int lineNumber = 0;
+	    try {
+	    	lineNumber = Integer.parseInt(tokens[0]);
+	    } catch (NumberFormatException e) {
+	    	System.out.println("No line number found");
+	    	return false;
+	    }
+	    //adds line to the symbol table
 		//*very important for goto statements*
-		int lineNumber = Integer.parseInt(tokens[0]);
 		table.put(new TableEntry(lineNumber, TableEntry.LINE, instructionCounter));
-
 		String command = tokens[1];
 
 		if (command.equals(REMARK)) 
 		{
-			return; //ignore the rest, its just a comment for the developer
+		 //ignore the rest, its just a comment for the developer
 		}
 		else if (command.equals(INPUT)) 
 		{
-			int symbol = (int)tokens[2].charAt(0);
-			compileInputCommand(symbol);
+			isValid = compileInputCommand(tokens);
 		}
 		else if (command.equals(PRINT)) 
 		{
-			int symbol = (int)tokens[2].charAt(0);
-			compilePrintCommand(symbol);
+			isValid = compilePrintCommand(tokens);
 		}
 		else if (command.equals(LET))
 		{
 			String expression = line.substring(line.indexOf("let")+3); //the substring after "let"
-			compileLetCommand(expression);
+			isValid = compileLetCommand(expression);
 	    } 
 	    else if (command.equals(GOTO))
 	    {
@@ -111,11 +128,7 @@ public class Compiler {
 	    }
 	    else if (command.equals(IF))
 	    {
-	    	String operandLeft = tokens[2];
-	    	String operator = tokens[3];
-	    	String operandRight = tokens[4];
-	    	int location = Integer.parseInt(tokens[6]);
-	    	compileIfCommand(operandLeft, operator, operandRight, location);
+	    	isValid = compileIfCommand(tokens);
 	    }
 	    else if (command.equals(END)) 
 	    {
@@ -123,24 +136,54 @@ public class Compiler {
 		} 
 	    else 
 	    {
-			System.out.println("Compile error! command not found");
-			System.out.println(line);
+			System.out.print("Command not valid on line #");
+			isValid = false;
 		}
 
+		//adds line number to unfinished compiler message in helper compile methods
+		if (!isValid)
+			System.out.println(lineNumber);
+
+		return isValid;
 	}
 
-	//post: input command compiled
-	private void compileInputCommand(int symbol) {
+	//post: input command compiled if valid
+	private boolean compileInputCommand(String[] tokens) {
+		//there must be a variable after the command
+		if (tokens.length < 3) {
+			System.out.print("Syntax error: no variable after input command on line #");
+			return false;
+		}
+		if (tokens[2].length() != 1) {
+			System.out.print("Syntax error: invalid variable format on line #");
+			return false;
+		}
+		int symbol = (int)tokens[2].charAt(0);
+
 		TableEntry entry = getEntry(symbol, TableEntry.VARIABLE);
 		int instruction = Simpletron.READ*1000 + entry.getLocation();
 		machineCodeArr[instructionCounter++] = instruction;
+		return true;
 	}
 
-	//post: print command compiled and added to machineCodeArr
-	private void compilePrintCommand(int symbol) {
+	//post: print command compiled and added to machineCodeArr if valid
+	private boolean compilePrintCommand(String[] tokens) {
+		//there must be a variable after the command
+		if (tokens.length < 3) {
+			System.out.print("Syntax error: no variable after print command on line #");
+			return false;
+		}
+		if (tokens[2].length() != 1) {
+			System.out.print("Syntax error: invalid variable format on line #");
+			return false;
+		}
+
+		int symbol = (int)tokens[2].charAt(0);
+		
 		TableEntry entry = getEntry(symbol, TableEntry.VARIABLE);
 		int instruction = Simpletron.WRITE*1000 + entry.getLocation();
 		machineCodeArr[instructionCounter++] = instruction;
+		return true;
 	}
 
 	//pre: lineNumber to goto and the specific goto command code Simpletron.BRANCH, BRANCHNEG, or BRANCHZERO
@@ -159,18 +202,38 @@ public class Compiler {
 
 	//pre: operandLeft, operandRight == variable or constant, operator == "<=, >=, !=, ==, >, <", and location for control to be transferred if true
 	//post: compiled if command added to machineCodeArr
-	private void compileIfCommand(String operandLeft, String operator, String operandRight, int location) {
+	private boolean compileIfCommand(String [] tokens) {
+		if (tokens.length < 7) {
+			System.out.println("input error on line #");
+			return false;
+		}
+
+		String operandLeft = tokens[2];
+	    String operator = tokens[3];
+	    String operandRight = tokens[4];
+	    if (!tokens[5].equals(GOTO)) {
+	    	System.out.print("If without goto on line #");
+	    	return false;
+	    }
+	    int location = 0;
+	    try {
+	    	location = Integer.parseInt(tokens[6]);
+	    } catch (NumberFormatException e) {
+	    	System.out.print("Line number format error on line #");
+	    	return false;
+	    }
+
 		TableEntry leftEntry;
 		TableEntry rightEntry;
 
 		//loads the operand entries from the symbol table, 
-		if (Character.isDigit(operandLeft.charAt(0))) {
+		if (Character.isDigit(operandLeft.charAt(0)) || operandLeft.charAt(0) == '-') {
 			leftEntry = getEntry(Integer.parseInt(operandLeft), TableEntry.CONSTANT);
 		} else {
 			leftEntry = getEntry((int)operandLeft.charAt(0), TableEntry.VARIABLE);
 		}
 
-		if (Character.isDigit(operandRight.charAt(0))) {
+		if (Character.isDigit(operandRight.charAt(0)) || operandRight.charAt(0) == '-') {
 			rightEntry = getEntry(Integer.parseInt(operandRight), TableEntry.CONSTANT);
 		} else {
 			rightEntry = getEntry((int)operandRight.charAt(0), TableEntry.VARIABLE);
@@ -185,8 +248,10 @@ public class Compiler {
 		} 
 		else if (operator.equals("!=")) 
 		{
-			compileIfCommand(operandLeft, ">", operandRight, location);
-			compileIfCommand(operandLeft, "<", operandRight, location);
+			tokens[3] = ">";
+			compileIfCommand(tokens);
+			tokens[3] = "<";
+			compileIfCommand(tokens);
 		} 
 		else if (operator.equals(">=")) 
 		{
@@ -216,13 +281,20 @@ public class Compiler {
 		} 
 		else 
 		{
-			System.out.println("Syntax error");
+			System.out.print("Operator format error on line #");
+			return false;
 		}
+
+		return true;
 	}
 
 	//pre: must be a full let statment in the format for example y = n1 + n1
 	//post: let command compiled and added to machineCodeArr
-	private void compileLetCommand(String statement) {
+	//      true if no errors in input
+	private boolean compileLetCommand(String statement) {
+		if (!isValidLetCommand(statement))
+			return false;
+
 		//take the substring to the right of the = operator, convert it to postfix notation, and break it up into tokens
 		String assignmentExpression = InfixToPostfixConverter.getPostfix(statement.substring(statement.indexOf("=")+1));
 		String [] expressionArr = getTokens(assignmentExpression);
@@ -288,6 +360,28 @@ public class Compiler {
 
 		machineCodeArr[instructionCounter++] = Simpletron.LOAD*1000 + solution.getLocation();
 		machineCodeArr[instructionCounter++] = Simpletron.STORE*1000 + assigneeVariable.getLocation();
+
+		return true;
+	}
+
+	private boolean isValidLetCommand(String string) {
+		//it must contain the assignment operator
+		if (string.indexOf("=") == -1)
+			return false;
+
+		int count = 0;
+		int i = 0;
+		for (; string.charAt(i) != '='; i++) {
+			if (string.charAt(i) != ' ')
+				count++;
+		}
+		//there can only be one variable to the left of the assignment operator
+		if (count != 1)
+			return false;
+		
+
+
+		return true;
 	}
 
 
@@ -323,6 +417,6 @@ public class Compiler {
 	
 	public static void main(String [] args) {
 		Compiler compiler = new Compiler();
-		compiler.compileProgram("test.smp");
+		compiler.compileProgram("example.smp");
 	}
 }
